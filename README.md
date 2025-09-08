@@ -65,10 +65,11 @@ We will use the following steps to run your project. Please ensure that your sub
 Our testing environment is Debian Linux and `bash`, `node`, and `pnpm` are pre-installed.
 
 1.  Run `pnpm install --recursive` to install all dependencies.
-2.  Run `./run.sh` to launch the application.
+2.  Run `pnpm --filter backend exec playwright install` to download the browsers used by the backend.
+3.  Run `./run.sh` to launch the application.
     *   This single script should handle all necessary steps, including code generation (e.g., `buf generate`) and starting both the frontend and backend servers.
-3.  Open `http://localhost:3000` in a web browser.
-4.  Test the functionality by adding and removing various tickers.
+4.  Open `http://localhost:3000` in a web browser.
+5.  Test the functionality by adding and removing various tickers.
 
 ## Submission
 *   The submission deadline is **7 days** after you receive access to this repository.

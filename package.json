@@ -1,0 +1,10 @@
+{
+  "name": "project-pluto",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
