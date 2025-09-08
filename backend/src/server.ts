@@ -20,16 +20,29 @@ async function getBrowser(): Promise<Browser> {
 async function startWatcher(ticker: string): Promise<Watcher> {
   const b = await getBrowser();
   const page = await b.newPage();
-  await page.goto(`https://www.tradingview.com/symbols/${ticker}/?exchange=BINANCE`);
+  await page.goto(`https://www.tradingview.com/symbols/${ticker}/?exchange=BINANCE`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.waitForSelector('[data-testid="price-container"], .tv-symbol-price-quote__value');
+
 
   const watcher: Watcher = { ticker, page, connections: new Set() };
 
   async function loop() {
     while (watchers.get(ticker) === watcher) {
       try {
-        const price = await page.locator('[data-testid="price-container"]').innerText();
-        for (const ws of watcher.connections) {
-          ws.send(JSON.stringify({ ticker, price }));
+        const price = await page.evaluate(() => {
+          const el =
+            document.querySelector('[data-testid="price-container"]') ||
+            document.querySelector('.tv-symbol-price-quote__value');
+          return el ? (el.textContent || '').trim() : null;
+        });
+        if (price) {
+          for (const ws of watcher.connections) {
+            ws.send(JSON.stringify({ ticker, price }));
+          }
+        } else {
+          console.error('price fetch error: price element not found');
         }
       } catch (e) {
         console.error('price fetch error', e);
