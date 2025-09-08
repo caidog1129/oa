@@ -12,8 +12,10 @@ export default function Home() {
 
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:8080');
+    ws.onopen = () => console.log('connected to backend');
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data.toString());
+      console.log('price update', data);
       setPrices((p) => ({ ...p, [data.ticker]: data.price }));
     };
     setSocket(ws);
@@ -42,6 +44,7 @@ export default function Home() {
   const addTicker = () => {
     const t = input.toUpperCase();
     if (socket && t && !tickers.includes(t)) {
+      console.log('subscribing to', t);
       socket.send(JSON.stringify({ type: 'subscribe', ticker: t }));
       setTickers((prev) => [...prev, t]);
     }
@@ -49,6 +52,7 @@ export default function Home() {
   };
 
   const removeTicker = (t: string) => {
+    console.log('unsubscribing from', t);
     if (socket) socket.send(JSON.stringify({ type: 'unsubscribe', ticker: t }));
     setPrices((p) => {
       const n = { ...p };

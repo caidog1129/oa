@@ -29,43 +29,46 @@ async function startWatcher(ticker: string): Promise<Watcher | null> {
     if (!resp || !resp.ok()) {
       throw new Error(`failed to load page: status ${resp ? resp.status() : 'unknown'}`);
     }
+    // Ensure the price element is present before streaming
+    await page.waitForSelector(
+      '[data-testid="price-container"], .tv-symbol-price-quote__value',
+      { timeout: 15000 }
+    );
   } catch (e) {
-    console.error('failed to initialize watcher', e);
+    console.error(`failed to initialize watcher for ${ticker}`, e);
     await page.close();
     return null;
   }
 
   const watcher: Watcher = { ticker, page, connections: new Set() };
 
-  async function loop() {
-    while (watchers.get(ticker) === watcher) {
-      if (page.isClosed()) {
-        watchers.delete(ticker);
-        break;
-      }
-      try {
-        const price = await page.evaluate(() => {
-          const el =
-            document.querySelector('[data-testid="price-container"]') ||
-            document.querySelector('.tv-symbol-price-quote__value');
-          return el ? (el.textContent || '').trim() : null;
-        });
-        if (price) {
-          for (const ws of watcher.connections) {
-            ws.send(JSON.stringify({ ticker, price }));
-          }
-        } else {
-          console.error('price fetch error: price element not found');
-        }
-      } catch (e) {
-        console.error('price fetch error', e);
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 1000));
+  // Forward price updates from the page to all subscribed clients
+  await page.exposeFunction('notifyPrice', (price: string) => {
+    for (const ws of watcher.connections) {
+      ws.send(JSON.stringify({ ticker, price }));
     }
-  }
-  loop();
+  });
+
+  await page.evaluate(() => {
+    const el =
+      document.querySelector('[data-testid="price-container"]') ||
+      document.querySelector('.tv-symbol-price-quote__value');
+    if (!el) return;
+    const send = (p: string) => (window as any).notifyPrice(p);
+    send((el.textContent || '').trim());
+    new MutationObserver(() => send((el.textContent || '').trim())).observe(el, {
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+  });
+
+  page.on('close', () => {
+    watchers.delete(ticker);
+  });
+
   watchers.set(ticker, watcher);
+  console.log(`watcher started for ${ticker}`);
   return watcher;
 }
 
@@ -82,14 +85,19 @@ wss.on('connection', (ws) => {
     const ticker = (data.ticker || '').toUpperCase();
     if (data.type === 'subscribe') {
       const watcher = watchers.get(ticker) ?? (await startWatcher(ticker));
-      if (watcher) watcher.connections.add(ws);
+      if (watcher) {
+        watcher.connections.add(ws);
+        console.log(`client subscribed to ${ticker} (${watcher.connections.size} listeners)`);
+      }
     } else if (data.type === 'unsubscribe') {
       const watcher = watchers.get(ticker);
       if (watcher) {
         watcher.connections.delete(ws);
+        console.log(`client unsubscribed from ${ticker} (${watcher.connections.size} remaining)`);
         if (watcher.connections.size === 0) {
           await watcher.page.close();
           watchers.delete(ticker);
+          console.log(`watcher closed for ${ticker}`);
         }
       }
     }
@@ -100,6 +108,7 @@ wss.on('connection', (ws) => {
       if (watcher.connections.delete(ws) && watcher.connections.size === 0) {
         await watcher.page.close();
         watchers.delete(ticker);
+        console.log(`watcher closed for ${ticker}`);
       }
     }
   });
