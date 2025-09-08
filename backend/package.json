@@ -1,0 +1,18 @@
+{
+  "name": "backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@connectrpc/connect": "^1.3.0",
+    "@connectrpc/connect-node": "^1.3.0",
+    "playwright": "^1.41.0",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
