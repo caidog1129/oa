@@ -36,16 +36,28 @@ export default function Home() {
   // Subscribe to all tickers when the socket connects or tickers list updates.
   useEffect(() => {
     if (!socket) return;
-    for (const t of tickers) {
-      socket.send(JSON.stringify({ type: 'subscribe', ticker: t }));
+
+    const subscribeAll = () => {
+      for (const t of tickers) {
+        socket.send(JSON.stringify({ type: 'subscribe', ticker: t }));
+      }
+    };
+
+    if (socket.readyState === WebSocket.OPEN) {
+      subscribeAll();
+    } else {
+      socket.addEventListener('open', subscribeAll, { once: true });
+      return () => socket.removeEventListener('open', subscribeAll);
     }
   }, [socket, tickers]);
 
   const addTicker = () => {
     const t = input.toUpperCase();
-    if (socket && t && !tickers.includes(t)) {
-      console.log('subscribing to', t);
-      socket.send(JSON.stringify({ type: 'subscribe', ticker: t }));
+    if (t && !tickers.includes(t)) {
+      if (socket?.readyState === WebSocket.OPEN) {
+        console.log('subscribing to', t);
+        socket.send(JSON.stringify({ type: 'subscribe', ticker: t }));
+      }
       setTickers((prev) => [...prev, t]);
     }
     setInput('');
@@ -53,7 +65,9 @@ export default function Home() {
 
   const removeTicker = (t: string) => {
     console.log('unsubscribing from', t);
-    if (socket) socket.send(JSON.stringify({ type: 'unsubscribe', ticker: t }));
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'unsubscribe', ticker: t }));
+    }
     setPrices((p) => {
       const n = { ...p };
       delete n[t];
