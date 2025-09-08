@@ -1,0 +1,6 @@
+node_modules
+# next build output
+frontend/.next
+# playwright caches
+playwright-report
+playwright/.cache
