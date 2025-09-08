@@ -25,6 +25,7 @@ async function startWatcher(ticker: string): Promise<Watcher> {
   });
   await page.waitForSelector('[data-testid="price-container"], .tv-symbol-price-quote__value');
 
+
   const watcher: Watcher = { ticker, page, connections: new Set() };
 
   async function loop() {
