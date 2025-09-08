@@ -12,8 +12,8 @@ let browser: Browser | undefined;
 
 async function getBrowser(): Promise<Browser> {
   if (!browser) {
-    // Launch headless by default so the TradingView page does not pop up.
-    browser = await chromium.launch({ headless: true });
+    // Launch the browser in headed mode so price scraping is visible
+    browser = await chromium.launch({ headless: false });
   }
   return browser;
 }
@@ -22,12 +22,13 @@ async function startWatcher(ticker: string): Promise<Watcher | null> {
   const b = await getBrowser();
   const page = await b.newPage();
   try {
-    await page.goto(`https://www.tradingview.com/symbols/${ticker}/?exchange=BINANCE`, {
-      waitUntil: 'domcontentloaded',
-    });
-    await page.waitForSelector('[data-testid="price-container"], .tv-symbol-price-quote__value', {
-      timeout: 15000,
-    });
+    const resp = await page.goto(
+      `https://www.tradingview.com/symbols/${ticker}/?exchange=BINANCE`,
+      { waitUntil: 'domcontentloaded' }
+    );
+    if (!resp || !resp.ok()) {
+      throw new Error(`failed to load page: status ${resp ? resp.status() : 'unknown'}`);
+    }
   } catch (e) {
     console.error('failed to initialize watcher', e);
     await page.close();
